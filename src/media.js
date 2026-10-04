@@ -235,7 +235,9 @@ async function trySmartConcat(clips) {
 
 export async function mergeProject(clips, settings, onProgress, onStage) {
   await getFFmpeg(onProgress);
-  if (settings.smartMerge) {
+  // Smart concat skips re-encoding, so it cannot be used when post-processing
+  // such as background music or watermark/logo is requested.
+  if (settings.smartMerge && !settings.musicFile && !settings.watermarkFile) {
     onStage?.('Akıllı hızlı birleştirme deneniyor…');
     const fast = await trySmartConcat(clips);
     if (fast) return { blob: fast, duration: clips.reduce((a,c)=>a+clipOutputDuration(c),0), fast:true };
@@ -364,15 +366,34 @@ export async function mergeProject(clips, settings, onProgress, onStage) {
     const wm='watermark.'+ext;
     await ffmpeg.writeFile(wm,await fetchFile(settings.watermarkFile));
     const watermarked='watermarked.mp4';
+
+    const widthPct=Math.max(5,Math.min(50,Number(settings.watermarkWidth || 18)));
+    const wmWidth=Math.max(48,Math.round(w*widthPct/100));
+    const opacity=Math.max(0.1,Math.min(1,Number(settings.watermarkOpacity ?? 0.9)));
+    const pos=settings.watermarkPosition || 'br';
+    const positions={
+      tl:'24:24',
+      tr:'W-w-24:24',
+      bl:'24:H-h-24',
+      br:'W-w-24:H-h-24',
+      center:'(W-w)/2:(H-h)/2'
+    };
+    const xy=positions[pos] || positions.br;
+    const wmFilter='[1:v]scale='+wmWidth+':-1,format=rgba,colorchannelmixer=aa='+opacity+'[wm];[0:v][wm]overlay='+xy+':shortest=1:format=auto[v]';
+
     const code=await ffmpeg.exec([
-      '-i',merged,'-i',wm,
-      '-filter_complex','[1:v]scale=180:-1[wm];[0:v][wm]overlay=W-w-24:H-h-24:format=auto[v]',
-      '-map','[v]','-map','0:a?','-c:v','libx264','-preset','ultrafast','-crf',crf,'-c:a','copy','-movflags','+faststart',watermarked
+      '-i',merged,'-loop','1','-i',wm,
+      '-filter_complex',wmFilter,
+      '-map','[v]','-map','0:a:0?',
+      '-c:v','libx264','-preset','ultrafast','-crf',crf,
+      '-c:a','copy','-t',String(totalDuration),'-movflags','+faststart',watermarked
     ]);
-    if (code===0) {
-      await cleanup([merged]);
-      merged=watermarked;
+    if (code!==0) {
+      await cleanup([wm,watermarked]);
+      throw new Error('Watermark uygulanamadı');
     }
+    await cleanup([merged]);
+    merged=watermarked;
     await cleanup([wm]);
   }
 
