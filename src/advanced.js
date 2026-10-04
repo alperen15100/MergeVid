@@ -222,3 +222,8 @@ export async function removeRanges(file,ranges,onProgress,onStage){
   if(code!==0){await del(ff,[input,output]);throw new Error('Metin tabanlı kesme başarısız')}
   const bytes=await ff.readFile(output);const blob=new Blob([bytes.buffer],{type:'video/mp4'});await del(ff,[input,output]);return blob;
 }
+
+
+export async function kenBurns(file,onProgress,onStage){
+  return ffBlob(file,(i,o)=>['-i',i,'-vf',"zoompan=z='min(zoom+0.0015,1.35)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1280x720:fps=30",'-c:v','libx264','-preset','ultrafast','-crf','25','-c:a','copy',o],'kenburns.mp4','video/mp4',onProgress,onStage);
+}
