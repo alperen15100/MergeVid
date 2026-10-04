@@ -144,18 +144,18 @@ export async function analyzeFile(file, onProgress) {
 }
 
 function dimsFor(settings, first) {
-  const qualityBase = settings.resolution === '1080' ? 1080 : settings.resolution === '480' ? 480 : 720;
+  const qualityBase = settings.resolution === '2160' ? 2160 : settings.resolution === '1080' ? 1080 : settings.resolution === '480' ? 480 : 720;
   const ratio = settings.ratio || 'original';
-  if (ratio === '16:9') return [qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280, qualityBase];
-  if (ratio === '9:16') return [qualityBase, qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280];
+  if (ratio === '16:9') return [qualityBase === 2160 ? 3840 : qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280, qualityBase];
+  if (ratio === '9:16') return [qualityBase, qualityBase === 2160 ? 3840 : qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280];
   if (ratio === '1:1') return [qualityBase, qualityBase];
   if (ratio === '4:5') return [qualityBase, Math.round(qualityBase * 1.25 / 2) * 2];
   let w = first?.width || 1280;
   let h = first?.height || 720;
   if (settings.resolution !== 'original') {
     const portrait = h > w;
-    if (portrait) return [qualityBase, qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280];
-    return [qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280, qualityBase];
+    if (portrait) return [qualityBase, qualityBase === 2160 ? 3840 : qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280];
+    return [qualityBase === 2160 ? 3840 : qualityBase === 1080 ? 1920 : qualityBase === 480 ? 854 : 1280, qualityBase];
   }
   w = Math.max(2, w - (w % 2));
   h = Math.max(2, h - (h % 2));
@@ -351,7 +351,10 @@ export async function mergeProject(clips, settings, onProgress, onStage) {
     const vol=Math.max(0,Math.min(2,Number(settings.musicVolume ?? 0.25)));
     const fade=Math.max(0,Math.min(4,Number(settings.musicFade ?? 1)));
     const outStart=Math.max(0,totalDuration-fade);
-    const af='[1:a]volume='+vol+',afade=t=in:st=0:d='+fade+',afade=t=out:st='+outStart+':d='+fade+'[m];[0:a][m]amix=inputs=2:duration=first:dropout_transition=2[a]';
+    const musicBase='[1:a]volume='+vol+',afade=t=in:st=0:d='+fade+',afade=t=out:st='+outStart+':d='+fade+'[m]';
+    const af=settings.musicDucking
+      ? musicBase+';[m][0:a]sidechaincompress=threshold=0.035:ratio=10:attack=20:release=450[duck];[0:a][duck]amix=inputs=2:duration=first:dropout_transition=2[a]'
+      : musicBase+';[0:a][m]amix=inputs=2:duration=first:dropout_transition=2[a]';
     const code=await ffmpeg.exec(['-i',merged,'-stream_loop','-1','-i',music,'-filter_complex',af,'-map','0:v:0','-map','[a]','-c:v','copy','-c:a','aac','-b:a','160k','-t',String(totalDuration),mixed]);
     if (code===0) {
       await cleanup([merged]);
@@ -395,6 +398,47 @@ export async function mergeProject(clips, settings, onProgress, onStage) {
     await cleanup([merged]);
     merged=watermarked;
     await cleanup([wm]);
+  }
+
+  if (Array.isArray(settings.overlays) && settings.overlays.length) {
+    onStage?.('Metin / sticker / altyazı katmanları uygulanıyor…');
+    const inputs=[];
+    const args=['-i',merged];
+    for(let i=0;i<settings.overlays.length;i++){
+      const ov=settings.overlays[i];
+      const name='overlay_'+i+'.png';
+      await ffmpeg.writeFile(name,await fetchFile(ov.file));
+      inputs.push(name);
+      args.push('-loop','1','-i',name);
+    }
+    const filters=[];
+    filters.push('[0:v]setpts=PTS-STARTPTS[base0]');
+    let prev='base0';
+    for(let i=0;i<settings.overlays.length;i++){
+      const ov=settings.overlays[i];
+      const out='ov'+i;
+      const start=Math.max(0,Number(ov.start||0));
+      const end=Math.max(start+0.05,Number(ov.end??totalDuration));
+      const opacity=Math.max(0.05,Math.min(1,Number(ov.opacity??1)));
+      const pos=ov.position||'center';
+      const xy={
+        tl:'24:24',tr:'W-w-24:24',bl:'24:H-h-24',br:'W-w-24:H-h-24',
+        center:'(W-w)/2:(H-h)/2',bottom:'(W-w)/2:H-h-54',top:'(W-w)/2:54'
+      }[pos]||'(W-w)/2:(H-h)/2';
+      filters.push('['+(i+1)+':v]scale='+w+':'+h+',format=rgba,colorchannelmixer=aa='+opacity+'[layer'+i+']');
+      filters.push('['+prev+'][layer'+i+']overlay='+xy+":enable='between(t,"+start+','+end+")':shortest=1["+out+']');
+      prev=out;
+    }
+    const layered='layered.mp4';
+    args.push('-filter_complex',filters.join(';'),'-map','['+prev+']','-map','0:a?','-c:v','libx264','-preset','ultrafast','-crf',crf,'-c:a','copy','-t',String(totalDuration),'-movflags','+faststart',layered);
+    const code=await ffmpeg.exec(args);
+    if(code!==0){
+      await cleanup(inputs.concat([layered]));
+      throw new Error('Katmanlar uygulanamadı');
+    }
+    await cleanup([merged]);
+    merged=layered;
+    await cleanup(inputs);
   }
 
   const bytes=await ffmpeg.readFile(merged);
