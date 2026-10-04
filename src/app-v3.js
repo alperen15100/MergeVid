@@ -31,7 +31,7 @@ let settings={...defaults,...safeJson(localStorage.getItem('mergevid-settings'),
 let clips=[],singleFile=null,secondFile=null,musicFile=null,watermarkFile=null;
 let overlays=[],selectedClipId=null,captionSrt='',captionResult=null;
 let resultBlob=null,resultUrl=null,resultExt='mp4',busy=false,progress=0,stageText='';
-let deferredInstall=null,history=[],redoStack=[],projectRows=[],batchFiles=[],batchResults=[];
+let deferredInstall=null,undoStack=[],redoStack=[],projectRows=[],batchFiles=[],batchResults=[];
 let brand=safeJson(localStorage.getItem('mergevid-brand'),{name:'MergeVid',color:'#8dff70',font:'system-ui'});
 let advAction='clean',previewUrl=null;
 
@@ -56,17 +56,17 @@ function onProgress(p){progress=Math.round((Number(p)||0)*100);updateProgress()}
 function updateProgress(){const w=$('#progressWrap');if(!w)return;w.classList.toggle('show',busy||progress>0);$('#progressBar')&&( $('#progressBar').style.width=progress+'%');$('#progressPct')&&($('#progressPct').textContent=progress+'%');$('#progressText')&&($('#progressText').textContent=stageText||t('Hazırlanıyor…','Preparing…'))}
 function clearResult(){if(resultUrl)URL.revokeObjectURL(resultUrl);resultUrl=null;resultBlob=null;resultExt='mp4';progress=0;stageText=''}
 function setResult(blob,ext='mp4'){clearResult();resultBlob=blob;resultExt=ext;resultUrl=URL.createObjectURL(blob);progress=100;stageText=t('Tamamlandı','Done');render()}
-function setTool(tool){settings.tool=tool;saveSettings();clearResult();const u=new URL(location.href);u.searchParams.set('tool',tool);history.replaceState({},'',u);render()}
+function setTool(tool){settings.tool=tool;saveSettings();clearResult();const u=new URL(location.href);u.searchParams.set('tool',tool);window.history.replaceState({},'',u);render()}
 function clipUrl(c){if(!c)return'';if(c.previewUrl)return c.previewUrl;c.previewUrl=URL.createObjectURL(c.file);return c.previewUrl}
 function snapshot(){
-  history.push(clips.map(c=>({...c,file:c.file,previewUrl:c.previewUrl})));if(history.length>30)history.shift();redoStack=[];
+  undoStack.push(clips.map(c=>({...c,file:c.file,previewUrl:c.previewUrl})));if(undoStack.length>30)undoStack.shift();redoStack=[];
 }
-function undo(){if(!history.length)return;redoStack.push(clips.map(c=>({...c})));clips=history.pop();render()}
-function redo(){if(!redoStack.length)return;history.push(clips.map(c=>({...c})));clips=redoStack.pop();render()}
+function undo(){if(!undoStack.length)return;redoStack.push(clips.map(c=>({...c})));clips=undoStack.pop();render()}
+function redo(){if(!redoStack.length)return;undoStack.push(clips.map(c=>({...c})));clips=redoStack.pop();render()}
 
 function header(){
   return '<header class="topbar"><button class="brand plain" id="homeBtn"><span class="brandmark">▶</span><span>MergeVid</span></button>'+
-  '<nav class="topnav"><button class="ghost" id="undoBtn" '+(!history.length?'disabled':'')+'>↶</button><button class="ghost" id="redoBtn" '+(!redoStack.length?'disabled':'')+'>↷</button>'+
+  '<nav class="topnav"><button class="ghost" id="undoBtn" '+(!undoStack.length?'disabled':'')+'>↶</button><button class="ghost" id="redoBtn" '+(!redoStack.length?'disabled':'')+'>↷</button>'+
   '<span class="privacy-pill">🔒 '+t('Dosyalar cihazında','Files stay on device')+'</span><button class="ghost" id="langBtn">'+(settings.lang==='tr'?'EN':'TR')+'</button>'+
   '<button class="ghost" id="installBtn">'+(deferredInstall?'⬇ '+t('Yükle','Install'):'PWA')+'</button></nav></header>';
 }
