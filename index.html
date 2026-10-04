@@ -1,29 +1,32 @@
 <!doctype html>
 <html lang="tr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0b0f" />
-    <meta name="description" content="Videoları ücretsiz olarak tarayıcında birleştir. Dosyalar sunucuya yüklenmez; işlem cihazında gerçekleşir." />
-    <meta name="keywords" content="video birleştirme, videoları birleştir, mp4 birleştirme, online video merger, video joiner" />
-    <meta property="og:title" content="MergeVid — Ücretsiz Online Video Birleştirme" />
-    <meta property="og:description" content="Videoları yüklemeden, doğrudan tarayıcıda birleştir." />
-    <meta property="og:type" content="website" />
-    <title>MergeVid — Ücretsiz Online Video Birleştirme</title>
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "MergeVid",
-        "applicationCategory": "MultimediaApplication",
-        "operatingSystem": "Web",
-        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "description": "Tarayıcı içinde çalışan ücretsiz video birleştirme aracı."
-      }
-    </script>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#08090d" />
+  <meta name="description" content="MergeVid ile videoları birleştir, kırp, sıkıştır, dönüştür, GIF veya MP3 oluştur. Dosyalar cihazında işlenir." />
+  <meta name="keywords" content="video birleştirme, video kırpma, video sıkıştırma, mp4 dönüştürme, video gif, mp3 çıkarma, online video editor" />
+  <meta name="robots" content="index,follow,max-image-preview:large" />
+  <meta property="og:title" content="MergeVid — Tarayıcıda Video Araçları" />
+  <meta property="og:description" content="Birleştir, kırp, sıkıştır, dönüştür ve daha fazlası. Dosyalar sunucuya yüklenmez." />
+  <meta property="og:type" content="website" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <title>MergeVid — Ücretsiz Online Video Araçları</title>
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@type":"SoftwareApplication",
+    "name":"MergeVid",
+    "applicationCategory":"MultimediaApplication",
+    "operatingSystem":"Web",
+    "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+    "featureList":"Merge video, trim video, compress video, convert video, crop video, resize video, GIF, audio extraction, frame extraction, captions"
+  }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
 </html>
