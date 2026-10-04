@@ -22,7 +22,8 @@ const tools=[
 const defaults={
   lang:'tr',ratio:'original',resolution:'720',fitMode:'fit',crf:25,
   transition:'none',transitionDuration:0.45,smartMerge:true,
-  musicVolume:0.25,musicFade:1
+  musicVolume:0.25,musicFade:1,
+  watermarkPosition:'br',watermarkWidth:18,watermarkOpacity:0.9
 };
 let settings={...defaults,...loadSettings()};
 let clips=[];
@@ -162,6 +163,10 @@ function mergeStudio(){
       '<label class="setting">'+t('Müzik seviyesi','Music volume')+'<input id="musicVolume" type="range" min="0" max="1" step=".05" value="'+settings.musicVolume+'"></label>'+
       '<label class="setting">'+t('Müzik fade','Music fade')+'<input id="musicFade" type="range" min="0" max="4" step=".5" value="'+settings.musicFade+'"></label>'+
       '<label class="setting">'+t('Logo / watermark (isteğe bağlı)','Logo / watermark (optional)')+'<input id="watermarkInput" type="file" accept="image/*"></label>'+
+      (watermarkFile?'<div class="selectedFile watermarkSelected"><b>✓ '+esc(watermarkFile.name)+'</b><span>'+t('Watermark dışa aktarımda uygulanacak','Watermark will be applied on export')+'</span></div>':'')+
+      selectSetting('watermarkPosition',t('Watermark konumu','Watermark position'),[['br',t('Sağ alt','Bottom right')],['bl',t('Sol alt','Bottom left')],['tr',t('Sağ üst','Top right')],['tl',t('Sol üst','Top left')],['center',t('Orta','Center')]])+
+      '<label class="setting">'+t('Watermark boyutu','Watermark size')+'<input id="watermarkWidth" type="range" min="5" max="50" step="1" value="'+settings.watermarkWidth+'"><span id="watermarkWidthValue">'+settings.watermarkWidth+'%</span></label>'+
+      '<label class="setting">'+t('Watermark opaklığı','Watermark opacity')+'<input id="watermarkOpacity" type="range" min=".1" max="1" step=".05" value="'+settings.watermarkOpacity+'"><span id="watermarkOpacityValue">'+Math.round(settings.watermarkOpacity*100)+'%</span></label>'+
       '<div class="estimate"><span>'+t('Tahmini çıktı','Estimated output')+'</span><b>'+fmtBytes(estimatedBytes())+'</b></div>'+
       '<button class="primary wide" id="mergeBtn" '+(clips.length<1||busy?'disabled':'')+'>'+t('Projeyi dışa aktar','Export project')+'</button>'+
       progressHtml()+resultHtml()+
@@ -261,13 +266,15 @@ async function handleFiles(files){
   clearResult();render();
 }
 function bindMerge(){
-  ['ratio','resolution','fitMode','crf','transition'].forEach(id=>$('#'+id)?.addEventListener('change',(e)=>{settings[id]=e.target.value;saveSettings();render();}));
+  ['ratio','resolution','fitMode','crf','transition','watermarkPosition'].forEach(id=>$('#'+id)?.addEventListener('change',(e)=>{settings[id]=e.target.value;saveSettings();render();}));
   $('#transitionDuration')?.addEventListener('input',(e)=>{settings.transitionDuration=Number(e.target.value);$('#transitionValue').textContent=e.target.value+'s';saveSettings();});
   $('#smartMerge')?.addEventListener('change',(e)=>{settings.smartMerge=e.target.checked;saveSettings();});
   $('#musicVolume')?.addEventListener('input',(e)=>{settings.musicVolume=Number(e.target.value);saveSettings();});
   $('#musicFade')?.addEventListener('input',(e)=>{settings.musicFade=Number(e.target.value);saveSettings();});
   $('#musicInput')?.addEventListener('change',(e)=>{musicFile=e.target.files[0]||null;});
-  $('#watermarkInput')?.addEventListener('change',(e)=>{watermarkFile=e.target.files[0]||null;});
+  $('#watermarkInput')?.addEventListener('change',(e)=>{watermarkFile=e.target.files[0]||null;clearResult();render();});
+  $('#watermarkWidth')?.addEventListener('input',(e)=>{settings.watermarkWidth=Number(e.target.value);$('#watermarkWidthValue').textContent=e.target.value+'%';saveSettings();});
+  $('#watermarkOpacity')?.addEventListener('input',(e)=>{settings.watermarkOpacity=Number(e.target.value);$('#watermarkOpacityValue').textContent=Math.round(Number(e.target.value)*100)+'%';saveSettings();});
   $('#titleCardBtn')?.addEventListener('click',addTitleCard);
   $('#scanBtn')?.addEventListener('click',scanMetadata);
   $('#mergeBtn')?.addEventListener('click',runMerge);
