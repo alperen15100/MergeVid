@@ -188,3 +188,37 @@ export function speakText(text,lang='tr-TR'){
   if(!('speechSynthesis'in window))throw new Error('Bu tarayıcı seslendirmeyi desteklemiyor');
   speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(String(text||''));u.lang=lang;u.rate=1;speechSynthesis.speak(u);
 }
+
+
+export async function reduceVocals(file,onProgress,onStage){
+  return ffBlob(file,(i,o)=>['-i',i,'-af','pan=stereo|c0=c0-c1|c1=c1-c0,loudnorm=I=-16:LRA=11:TP=-1.5','-c:v','copy','-c:a','aac','-b:a','160k',o],'vocal-reduced.mp4','video/mp4',onProgress,onStage);
+}
+
+export async function privacyRegion(file,opts={},onProgress,onStage){
+  const x=Math.max(0,Number(opts.x||0)),y=Math.max(0,Number(opts.y||0));
+  const w=Math.max(20,Number(opts.w||240)),h=Math.max(20,Number(opts.h||160));
+  const mode=opts.mode==='pixelate'?'pixel':'blur';
+  const vf=mode==='pixel'
+    ? '[0:v]split[base][tmp];[tmp]crop='+w+':'+h+':'+x+':'+y+',scale=iw/12:ih/12:flags=neighbor,scale='+w+':'+h+':flags=neighbor[fx];[base][fx]overlay='+x+':'+y
+    : '[0:v]split[base][tmp];[tmp]crop='+w+':'+h+':'+x+':'+y+',boxblur=12:2[fx];[base][fx]overlay='+x+':'+y;
+  return ffBlob(file,(i,o)=>['-i',i,'-filter_complex',vf,'-c:v','libx264','-preset','ultrafast','-crf','25','-c:a','copy',o],'privacy.mp4','video/mp4',onProgress,onStage);
+}
+
+export async function removeRanges(file,ranges,onProgress,onStage){
+  const valid=(ranges||[]).filter(r=>Number(r.end)>Number(r.start)).sort((a,b)=>a.start-b.start);
+  if(!valid.length)throw new Error('Silinecek metin aralığı seçilmedi');
+  const meta=document.createElement('video');const url=URL.createObjectURL(file);
+  const duration=await new Promise((res,rej)=>{meta.onloadedmetadata=()=>res(meta.duration);meta.onerror=rej;meta.src=url});
+  URL.revokeObjectURL(url);
+  const keeps=[];let p=0;
+  for(const r of valid){const a=Math.max(0,Number(r.start)),b=Math.min(duration,Number(r.end));if(a-p>.05)keeps.push([p,a]);p=Math.max(p,b)}
+  if(duration-p>.05)keeps.push([p,duration]);
+  if(!keeps.length)throw new Error('Tüm video silinmiş olur');
+  const ff=await getFFmpeg(onProgress);const input='transcript.'+ext(file.name),output='transcript-edit.mp4';
+  await ff.writeFile(input,await fetchFile(file));onStage?.('Metne göre video kesiliyor…');
+  const filter=[];keeps.forEach(([a,b],i)=>{filter.push('[0:v]trim=start='+a+':end='+b+',setpts=PTS-STARTPTS[v'+i+']');filter.push('[0:a]atrim=start='+a+':end='+b+',asetpts=PTS-STARTPTS[a'+i+']')});
+  let seq='';for(let i=0;i<keeps.length;i++)seq+='[v'+i+'][a'+i+']';filter.push(seq+'concat=n='+keeps.length+':v=1:a=1[v][a]');
+  const code=await ff.exec(['-i',input,'-filter_complex',filter.join(';'),'-map','[v]','-map','[a]','-c:v','libx264','-preset','ultrafast','-crf','25','-c:a','aac',output]);
+  if(code!==0){await del(ff,[input,output]);throw new Error('Metin tabanlı kesme başarısız')}
+  const bytes=await ff.readFile(output);const blob=new Blob([bytes.buffer],{type:'video/mp4'});await del(ff,[input,output]);return blob;
+}
