@@ -1,16 +1,17 @@
 {
   "name": "mergevid-web",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/generate-seo.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "0.12.15",
-    "@ffmpeg/util": "0.12.2"
+    "@ffmpeg/util": "0.12.2",
+    "@huggingface/transformers": "4.3.0"
   },
   "devDependencies": {
     "vite": "^7.1.9"
