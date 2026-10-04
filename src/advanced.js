@@ -89,7 +89,7 @@ export function autoShortsFromSrt(srt,max=5){
     const parse=(v)=>{const m=v.match(/(\d+):(\d+):(\d+)[,.](\d+)/);return m?+m[1]*3600 + +m[2]*60 + +m[3] + +m[4]/1000:0};
     const text=lines.filter(x=>!/^\d+$/.test(x.trim())&&!x.includes('-->')).join(' ').trim();
     if(text.length<12)continue;
-    const score=(/[!?]/.test(text)?3:0)+Math.min(5,text.length/35)+(\b\d+\b/.test(text)?1:0);
+    const score=(/[!?]/.test(text)?3:0)+Math.min(5,text.length/35)+(/\b\d+\b/.test(text)?1:0);
     items.push({start:parse(a),end:parse(z),text,score});
   }
   items.sort((a,b)=>b.score-a.score);
